@@ -1,0 +1,31 @@
+SELECT 
+  file_name, 
+  ai_query('databricks-meta-llama-3-1-70b-instruct',
+            CONCAT('You are an expert glossary extractor. Your task is to analyze a chunk from a document, extract acronyms and their definitions, and provide structured information.
+
+Here are examples of how to format the results:
+
+Example 1:
+Acronym: DSO
+Definition: Distribution System Operation
+Certainty: 95
+
+Example 2:
+Acronym: ODI
+Definition: Output Delivery Incentive
+Certainty: 90
+
+Now, go through the following document chunk and identify all acronyms and their definitions:
+- Acronyms must have definitions found within the document chunk itself (no invented definitions).
+- For each acronym, provide:
+  - The acronym itself.
+  - The definition as stated in the document chunk.
+  - A certainty score (out of 100) based on how likely it is that the definition is correct.
+
+Respond ONLY with the JSON format containing the fields: "acronym", "definition", "certainty". Do not include any explanations or notes.
+
+Chunk Text: {content}:\n', text)) as glossary
+
+FROM
+  kyra_wulffert.poc_doc_management.bronze_docs
+WHERE file_name LIKE 'DSO_Incentive_Report_2023-24.pdf'
