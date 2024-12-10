@@ -1,0 +1,46 @@
+-- Create the table if it doesn't exist
+CREATE TABLE IF NOT EXISTS kyra_wulffert.poc_doc_management.normalised_glossary_test (
+    file_name STRING,
+    acronym STRING,
+    definition STRING,
+    certainty INT
+);
+
+WITH glossary AS (
+    SELECT 
+        file_name, 
+        -- Ensure the AI query response is returned correctly as a valid JSON array
+        ai_query('test_kw_ptu', 
+            CONCAT('You are an expert glossary extractor. Your task is to analyze a chunk from a document, extract acronyms and their definitions, and provide structured information.',
+                'Here are examples of how to format the results:',
+                'Example 1:',
+                'Acronym: DSO',
+                'Definition: Distribution System Operation',
+                'Certainty: 95',
+                'Example 2:',
+                'Acronym: ODI',
+                'Definition: Output Delivery Incentive',
+                'Certainty: 90',
+                'Now, go through the following document chunk and identify all acronyms and their definitions:',
+                '- Acronyms must have definitions found within the document chunk itself (no invented definitions).',
+                '- For each acronym, provide:',
+                '  - The acronym itself.',
+                '  - The definition as stated in the document chunk.',
+                '  - A certainty score (out of 100) based on how likely it is that the definition is correct.',
+                'Respond ONLY with the JSON format containing the fields: "acronym", "definition", "certainty".',
+                'Do not include any explanations or notes.',
+                'Chunk Text: ', SUBSTRING(text, 600001, 720000))
+        ) AS glossary_json -- Alias the result of the AI query as glossary_json
+    FROM kyra_wulffert.poc_doc_management.bronze_docs
+    WHERE file_name LIKE 'RIIO-ED2 Final Determinations Core Methodology.pdf'
+)
+
+-- Insert data into the normalized glossary table
+INSERT INTO kyra_wulffert.poc_doc_management.normalised_glossary_test (file_name, acronym, definition, certainty)
+SELECT 
+    file_name,
+    item.acronym AS acronym,
+    item.definition AS definition,
+    item.certainty AS certainty
+FROM glossary
+LATERAL VIEW explode(from_json(glossary_json, 'array<struct<acronym:string,definition:string,certainty:int>>')) exploded_items AS item;
